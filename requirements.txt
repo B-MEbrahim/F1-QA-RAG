@@ -1,0 +1,17 @@
+# Core Frameworks
+langchain
+langchain-community
+langchain-huggingface
+langserve[all]
+fastapi
+uvicorn
+
+# Data & Vector DB
+chromadb
+pymupdf4llm
+fastf1
+pandas
+
+# UI
+streamlit
+python-dotenv
