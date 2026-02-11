@@ -1,6 +1,8 @@
 import fastf1
 import pandas as pd
 from datetime import datetime
+from langchain_core.tools import tool
+
 
 fastf1.Cache.enable_cache('data/cache')
 
@@ -24,6 +26,14 @@ def get_race_results(year: int, gp_name: str, top_k: int):
     except Exception as e:
         return f"Error fetching results for {year} {gp_name}: {str(e)}"
     
+@tool
+def get_race_results_tool(year: int, gp_name: str):
+    """
+    Fetches the top 10 race results for a specific Grand Prix.
+    Use this when the user asks for race outcomes, podiums, or specific race points.
+    """
+    return get_race_results(year, gp_name)
+
 
 if __name__ == "__main__":
     print("--- Testing Bahrain 2024 ---")
