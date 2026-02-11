@@ -4,6 +4,7 @@ langchain-community
 langchain-huggingface
 langserve[all]
 langchain_chroma
+tiktoken
 fastapi
 uvicorn
 

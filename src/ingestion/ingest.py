@@ -5,12 +5,15 @@ import hashlib
 from pathlib import Path
 import pymupdf4llm
 from dotenv import load_dotenv
+import tiktoken
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
 from langchain_text_splitters import (MarkdownHeaderTextSplitter,
                                       RecursiveCharacterTextSplitter)
 from langchain_core.documents import Document
 # from langchain_nvidia_ai_endpoints import NVIDIAEmbeddings
+
+encoding = tiktoken.get_encoding("cl100k_base")
 
 HEADER_TO_SPLIT_ON = [
     ("####", "clause"),
@@ -22,6 +25,9 @@ HEADER_TO_SPLIT_ON = [
 # init embedder
 embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-mpnet-base-v2")
 # embeddings = NVIDIAEmbeddings(model="nvidia/nv-embedqa-e5-v5")
+
+def token_len(text):
+    return len(encoding.get_encoding(text))
 
 def extract_metadata_from_filename(file_path: str):
 
@@ -107,8 +113,9 @@ def chunk_fia_document(md_text: str, file_path: str):
 
     # token splitting
     token_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=700,
-        chunk_overlap=100
+        chunk_size=400,
+        chunk_overlap=80,
+        length_function=token_len
     )
     docs = token_splitter.split_documents(docs)
 
