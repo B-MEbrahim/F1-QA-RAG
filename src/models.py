@@ -1,5 +1,4 @@
 from pydantic import BaseModel, Field
-from typing import Any, Dict, Union, Optional
 
 class Regulations(BaseModel):
     year: int = Field(2026, description="Year of FIA Regulations")
