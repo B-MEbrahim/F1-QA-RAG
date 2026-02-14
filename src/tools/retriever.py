@@ -1,20 +1,24 @@
 import os
 from langchain_chroma import Chroma
-from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_nvidia_ai_endpoints import NVIDIAEmbeddings
 from langchain_core.tools import tool
+from dotenv import load_dotenv
 
-embeddings = ...
+load_dotenv()
 
-def get_retriever(year: int):
+# Initialize NVIDIA embeddings (same model as ingestion)
+embeddings = NVIDIAEmbeddings(model="nvidia/nv-embedqa-e5-v5")
+
+def get_retriever(year: int, k: int = 5):
     """
     Returns a retriever object specifically for the requested year's collection.
     """
     vector_store = Chroma(
         collection_name=str(year),
         embedding_function=embeddings,
-        presist_directory="./data/chromadb"
+        persist_directory="./data/chromadb"
     )
-    return vector_store.as_retriever(search_kwargs={"k": 5})
+    return vector_store.as_retriever(search_kwargs={"k": k})
 
 @tool
 def search_f1_regulations(query: str, year: int=2026):
