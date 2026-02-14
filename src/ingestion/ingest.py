@@ -27,7 +27,7 @@ HEADER_TO_SPLIT_ON = [
 embeddings = NVIDIAEmbeddings(model="nvidia/nv-embedqa-e5-v5")
 
 def token_len(text):
-    return len(encoding.get_encoding(text))
+    return len(encoding.encode(text))
 
 def extract_metadata_from_filename(file_path: str):
 
