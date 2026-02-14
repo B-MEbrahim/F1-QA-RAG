@@ -111,13 +111,21 @@ def chunk_fia_document(md_text: str, file_path: str):
     )
     docs = header_splitter.split_text(md_text)
 
-    # token splitting
+    # token splitting - keep well under 512 token limit for NVIDIA embeddings
     token_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=400,
-        chunk_overlap=80,
+        chunk_size=300,
+        chunk_overlap=50,
         length_function=token_len
     )
     docs = token_splitter.split_documents(docs)
+
+    # Safety check: truncate any chunks still over 500 tokens
+    MAX_TOKENS = 500
+    for doc in docs:
+        if token_len(doc.page_content) > MAX_TOKENS:
+            # Truncate to max tokens
+            tokens = encoding.encode(doc.page_content)[:MAX_TOKENS]
+            doc.page_content = encoding.decode(tokens)
 
     # enrich metadata
     final_docs = []
