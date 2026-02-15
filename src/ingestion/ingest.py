@@ -5,15 +5,16 @@ import hashlib
 from pathlib import Path
 import pymupdf4llm
 from dotenv import load_dotenv
-import tiktoken
-from langchain_huggingface import HuggingFaceEmbeddings
+from transformers import AutoTokenizer
+#from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
 from langchain_text_splitters import (MarkdownHeaderTextSplitter,
                                       RecursiveCharacterTextSplitter)
 from langchain_core.documents import Document
 from langchain_nvidia_ai_endpoints import NVIDIAEmbeddings
 
-encoding = tiktoken.get_encoding("cl100k_base")
+# Use the actual E5 tokenizer that matches the NVIDIA embedding model
+tokenizer = AutoTokenizer.from_pretrained("intfloat/e5-large-v2")
 
 HEADER_TO_SPLIT_ON = [
     ("####", "clause"),
@@ -27,7 +28,7 @@ HEADER_TO_SPLIT_ON = [
 embeddings = NVIDIAEmbeddings(model="nvidia/nv-embedqa-e5-v5")
 
 def token_len(text):
-    return len(encoding.encode(text))
+    return len(tokenizer.encode(text, add_special_tokens=True))
 
 def extract_metadata_from_filename(file_path: str):
 
@@ -99,7 +100,7 @@ def extract_rule_id(text: str):
 
 def chunk_fia_document(md_text: str, file_path: str):
 
-    # exctract file metadata
+    # extract file metadata
     file_metadata = extract_metadata_from_filename(file_path)
 
     # normalize markdown
@@ -111,21 +112,25 @@ def chunk_fia_document(md_text: str, file_path: str):
     )
     docs = header_splitter.split_text(md_text)
 
-    # token splitting - keep well under 512 token limit for NVIDIA embeddings
+    # token splitting 
+    # Using actual E5 tokenizer - safe limit is 480 tokens (with buffer under 512 max)
     token_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=300,
+        chunk_size=480, 
         chunk_overlap=50,
         length_function=token_len
     )
     docs = token_splitter.split_documents(docs)
 
-    # Safety check: truncate any chunks still over 500 tokens
-    MAX_TOKENS = 500
+    # Safety check: truncate any chunks still over limit
+    MAX_TOKENS = 480
+    
     for doc in docs:
-        if token_len(doc.page_content) > MAX_TOKENS:
-            # Truncate to max tokens
-            tokens = encoding.encode(doc.page_content)[:MAX_TOKENS]
-            doc.page_content = encoding.decode(tokens)
+        current_len = token_len(doc.page_content)
+        if current_len > MAX_TOKENS:
+            # Truncate to max tokens using the correct tokenizer
+            tokens = tokenizer.encode(doc.page_content, add_special_tokens=True)[:MAX_TOKENS]
+            doc.page_content = tokenizer.decode(tokens, skip_special_tokens=True)
+            print(f"Truncated chunk from {current_len} to {MAX_TOKENS} tokens")
 
     # enrich metadata
     final_docs = []

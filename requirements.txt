@@ -5,6 +5,7 @@ langchain-huggingface
 langchain-nvidia-ai-endpoints
 langserve[all]
 langchain_chroma
+transformers
 tiktoken
 fastapi
 uvicorn
