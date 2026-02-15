@@ -110,16 +110,26 @@ def get_answer(question: str, session_id: str = "default") -> dict:
     # Route and extract intent
     try:
         route_result: RouteQuery = router_chain.invoke({"question": question})
-        intent = route_result.intent
-        print(f"--- Detected Intent: {intent} ---")
+        
+        # Handle None result from structured output
+        if route_result is None:
+            print("--- Routing returned None, defaulting to REGULATIONS ---")
+            intent = "REGULATIONS"
+            route_result = RouteQuery(intent="REGULATIONS", regulations_query=Regulations(year=2026))
+        else:
+            intent = route_result.intent
+            print(f"--- Detected Intent: {intent} ---")
     except Exception as e:
         print(f"Routing Error: {e}")
-        return {
-            "answer": "Sorry, I had trouble understanding your question. Please try rephrasing.",
-            "intent": "ERROR",
-            "sources": [],
-            "validation_info": {"error": str(e)}
-        }
+        # Fallback: try to infer intent from keywords
+        q_lower = question.lower()
+        if any(word in q_lower for word in ["winner", "won", "podium", "race result", "finishing"]):
+            intent = "RACE_RESULTS"
+            route_result = RouteQuery(intent="RACE_RESULTS", race_query=Race(year=2026, gp_name=""))
+        else:
+            intent = "REGULATIONS"
+            route_result = RouteQuery(intent="REGULATIONS", regulations_query=Regulations(year=2026))
+        print(f"--- Fallback Intent: {intent} ---")
 
     context = ""
     retrieved_docs = []
