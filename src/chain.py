@@ -1,28 +1,12 @@
 import os
 from dotenv import load_dotenv
 from langchain_nvidia_ai_endpoints import ChatNVIDIA
-from langchain_core.runnables import RunnableLambda, RunnablePassthrough
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.messages import HumanMessage, AIMessage
-from operator import itemgetter
-
-# HuggingFace LLM (commented out - keeping for reference)
-# from langchain_huggingface import HuggingFaceEndpoint, ChatHuggingFace
-# repo_id = "mistralai/Mistral-7B-Instruct-v0.2"
-# llm = HuggingFaceEndpoint(
-#     repo_id=repo_id,
-#     task="text-generation",
-#     max_new_tokens=512,
-#     do_sample=False,
-#     temperature=0.2,
-# )
-# chat_llm = ChatHuggingFace(llm=llm)
 
 # import tools
-from src.tools.retriever import search_f1_regulations, get_retriever
-from src.tools.f1_stats import get_race_results_tool
-from src.models import Race, Regulations, RouteQuery
+from src.tools.retriever import get_retriever
 from src.guardrails.checks import validate_input, validate_output
 
 load_dotenv()
@@ -33,22 +17,6 @@ chat_llm = ChatNVIDIA(
     temperature=0.2,
     max_tokens=1024,
 )
-structured_llm = chat_llm.with_structured_output(RouteQuery)
-
-# ============ Router Chain ============
-router_system_prompt = """You are an expert F1 Assistant. 
-Your task is to route the user's question and extract relevant parameters.
-- For Rules/Regs (penalties, technical specs): Set intent='REGULATIONS' and fill 'regulations_query'. Default year is 2026.
-- For Race Results (winners, podiums): Set intent='RACE_RESULTS' and fill 'race_query'.
-- For anything else: Set intent='GENERAL_CHAT'.
-"""
-
-route_prompt = ChatPromptTemplate.from_messages([
-    ("system", router_system_prompt),
-    ("human", "{question}"),
-])
-
-router_chain = route_prompt | structured_llm
 
 # ============ Answer Chain (with chat history) ============
 answer_prompt = ChatPromptTemplate.from_messages([
@@ -88,12 +56,17 @@ def clear_history(session_id: str):
         del chat_histories[session_id]
 
 # ============ Main Pipeline ============
-def get_answer(question: str, session_id: str = "default") -> dict:
+def get_answer(question: str, session_id: str = "default", year: int = 2026) -> dict:
     """
-    Main RAG pipeline with routing, tool calls, guardrails, and chat history.
+    RAG pipeline with vector database retrieval, guardrails, and chat history.
+    
+    Args:
+        question: User's question
+        session_id: Session identifier for chat history
+        year: Year for F1 regulations (default: 2026)
     
     Returns:
-        dict with keys: answer, intent, sources, validation_info
+        dict with keys: answer, sources, validation_info
     """
     print(f"\n--- Processing: {question} ---")
     
@@ -102,70 +75,28 @@ def get_answer(question: str, session_id: str = "default") -> dict:
     if not is_valid:
         return {
             "answer": f"I cannot process this request: {validation_msg}",
-            "intent": "BLOCKED",
             "sources": [],
             "validation_info": {"input_blocked": True, "reason": validation_msg}
         }
 
-    # Route and extract intent
-    try:
-        route_result: RouteQuery = router_chain.invoke({"question": question})
-        
-        # Handle None result from structured output
-        if route_result is None:
-            print("--- Routing returned None, defaulting to REGULATIONS ---")
-            intent = "REGULATIONS"
-            route_result = RouteQuery(intent="REGULATIONS", regulations_query=Regulations(year=2026))
-        else:
-            intent = route_result.intent
-            print(f"--- Detected Intent: {intent} ---")
-    except Exception as e:
-        print(f"Routing Error: {e}")
-        # Fallback: try to infer intent from keywords
-        q_lower = question.lower()
-        if any(word in q_lower for word in ["winner", "won", "podium", "race result", "finishing"]):
-            intent = "RACE_RESULTS"
-            route_result = RouteQuery(intent="RACE_RESULTS", race_query=Race(year=2026, gp_name=""))
-        else:
-            intent = "REGULATIONS"
-            route_result = RouteQuery(intent="REGULATIONS", regulations_query=Regulations(year=2026))
-        print(f"--- Fallback Intent: {intent} ---")
-
-    context = ""
-    retrieved_docs = []
-
-    # Invoke tools based on intent
-    if intent == "REGULATIONS":
-        year = route_result.regulations_query.year if route_result.regulations_query else 2026
-        print(f"--- Tool Call: Searching Regulations ({year}) ---")
-        
-        # Get retriever and fetch docs
-        retriever = get_retriever(year)
-        retrieved_docs = retriever.invoke(question)
-        
-        # Format context with sources
-        context = "\n\n".join(
-            [f"[Source: {d.metadata.get('source', 'Unknown')} | Rule: {d.metadata.get('rule_id', 'N/A')}]\n{d.page_content}" 
-             for d in retrieved_docs]
-        )
+    # Get retriever and fetch relevant documents
+    print(f"--- Retrieving documents from vector database ({year}) ---")
+    retriever = get_retriever(year)
+    retrieved_docs = retriever.invoke(question)
     
-    elif intent == "RACE_RESULTS":
-        if route_result.race_query:
-            year = route_result.race_query.year
-            gp_name = route_result.race_query.gp_name
-            print(f"--- Tool Call: FastF1 Results ({year} {gp_name}) ---")
-            context = get_race_results_tool.invoke({"year": year, "gp_name": gp_name})
-        else:
-            context = "Error: Could not extract Race Name or Year from your question."
-
-    else:  # GENERAL_CHAT
-        context = "No specific F1 data retrieved. Answer based on general knowledge about Formula 1."
-
+    # Format context with sources
+    context = "\n\n".join(
+        [f"[Source: {d.metadata.get('source', 'Unknown')} | Rule: {d.metadata.get('rule_id', 'N/A')}]\n{d.page_content}" 
+         for d in retrieved_docs]
+    )
+    
     # Get chat history
     history = get_chat_history(session_id)
     
     # Generate answer
     print(f"--- Context Length: {len(str(context))} chars ---")
+    print(f"--- Retrieved {len(retrieved_docs)} documents ---")
+    
     raw_answer = answer_chain.invoke({
         "context": context,
         "question": question,
@@ -180,16 +111,15 @@ def get_answer(question: str, session_id: str = "default") -> dict:
     
     return {
         "answer": final_answer,
-        "intent": intent,
         "sources": [d.metadata for d in retrieved_docs] if retrieved_docs else [],
         "validation_info": validation_info
     }
 
 
 # ============ Simple Interface ============
-def chat(question: str, session_id: str = "default") -> str:
+def chat(question: str, session_id: str = "default", year: int = 2026) -> str:
     """Simple chat interface that returns just the answer string."""
-    result = get_answer(question, session_id)
+    result = get_answer(question, session_id, year)
     return result["answer"]
 
 
@@ -198,7 +128,6 @@ if __name__ == "__main__":
     print("=" * 60)
     print(chat("What is the maximum fuel mass flow for 2026?"))
     print("=" * 60)
-    print(chat("Who won the Bahrain GP in 2025?"))
-    print("=" * 60)
-    # Test follow-up (chat history)
     print(chat("Tell me more about the fuel regulations", session_id="test"))
+    print("=" * 60)
+    print(chat("What are the tire regulations?", session_id="test"))
