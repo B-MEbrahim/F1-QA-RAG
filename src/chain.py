@@ -13,7 +13,7 @@ load_dotenv()
 
 # ============ LLM Setup (NVIDIA NIM) ============
 chat_llm = ChatNVIDIA(
-    model="mistralai/mixtral-8x7b-instruct-v0.1",
+    model="meta/llama-3.1-70b-instruct",
     temperature=0.2,
     max_tokens=1024,
 )
