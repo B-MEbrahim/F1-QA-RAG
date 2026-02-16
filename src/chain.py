@@ -1,6 +1,9 @@
 import os
 from dotenv import load_dotenv
-from langchain_nvidia_ai_endpoints import ChatNVIDIA
+#from langchain_nvidia_ai_endpoints import ChatNVIDIA
+from openai import OpenAI
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.messages import HumanMessage, AIMessage
@@ -12,11 +15,22 @@ from src.guardrails.checks import validate_input, validate_output
 load_dotenv()
 
 # ============ LLM Setup (NVIDIA NIM) ============
-chat_llm = ChatNVIDIA(
-    model="meta/llama-3.1-70b-instruct",
-    temperature=0.2,
-    max_tokens=1024,
+chat_llm = ChatGoogleGenerativeAI(
+    model="gemini-3-flash-preview",
+    api_key=os.environ["GEMINI_KEY"]
 )
+
+# chat_llm = ChatOpenAI(
+#     model="meta-llama/Llama-3.1-70B-Instruct:scaleway",
+#     api_key=os.environ["HF_TOKEN"],
+#     base_url="https://router.huggingface.co/v1"
+# )
+
+# chat_llm = ChatNVIDIA(
+#     model="meta/llama-3.1-70b-instruct",
+#     temperature=0.2,
+#     max_tokens=1024,
+# )
 
 # ============ Answer Chain (with chat history) ============
 answer_prompt = ChatPromptTemplate.from_messages([
@@ -125,9 +139,9 @@ def chat(question: str, session_id: str = "default", year: int = 2026) -> str:
 
 if __name__ == "__main__":
     # Test the pipeline
+    # print("=" * 60)
+    # print(chat("What is the maximum fuel mass flow for 2026?"))
+    # print("=" * 60)
+    # print(chat("Tell me more about the fuel regulations", session_id="test"))
     print("=" * 60)
-    print(chat("What is the maximum fuel mass flow for 2026?"))
-    print("=" * 60)
-    print(chat("Tell me more about the fuel regulations", session_id="test"))
-    print("=" * 60)
-    print(chat("What are the tire regulations?", session_id="test"))
+    print(chat("What is the maximum enigne horse power of an f1 car?", session_id="test"))

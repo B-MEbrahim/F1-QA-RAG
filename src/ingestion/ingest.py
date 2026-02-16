@@ -6,15 +6,15 @@ from pathlib import Path
 import pymupdf4llm
 from dotenv import load_dotenv
 from transformers import AutoTokenizer
-#from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
 from langchain_text_splitters import (MarkdownHeaderTextSplitter,
                                       RecursiveCharacterTextSplitter)
 from langchain_core.documents import Document
-from langchain_nvidia_ai_endpoints import NVIDIAEmbeddings
+#from langchain_nvidia_ai_endpoints import NVIDIAEmbeddings
 
 # Use the actual E5 tokenizer that matches the NVIDIA embedding model
-tokenizer = AutoTokenizer.from_pretrained("intfloat/e5-large-v2")
+tokenizer = AutoTokenizer.from_pretrained("sentence-transformers/all-MiniLM-L6-v2")
 
 HEADER_TO_SPLIT_ON = [
     ("####", "clause"),
@@ -24,8 +24,8 @@ HEADER_TO_SPLIT_ON = [
 ]
 
 # init embedder
-#embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
-embeddings = NVIDIAEmbeddings(model="nvidia/nv-embedqa-e5-v5")
+embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+# embeddings = NVIDIAEmbeddings(model="nvidia/nv-embedqa-e5-v5")
 
 def token_len(text):
     return len(tokenizer.encode(text, add_special_tokens=True))

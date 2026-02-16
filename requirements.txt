@@ -2,10 +2,14 @@
 langchain
 langchain-community
 langchain-huggingface
+langchain_openai
 langchain-nvidia-ai-endpoints
+langchain_google_genai
 langserve[all]
 langchain_chroma
 transformers
+sentence_transformers
+openai
 tiktoken
 fastapi
 uvicorn

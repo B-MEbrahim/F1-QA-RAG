@@ -1,13 +1,15 @@
 import os
 from langchain_chroma import Chroma
-from langchain_nvidia_ai_endpoints import NVIDIAEmbeddings
+# from langchain_nvidia_ai_endpoints import NVIDIAEmbeddings
+from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_core.tools import tool
 from dotenv import load_dotenv
 
 load_dotenv()
 
 # Initialize NVIDIA embeddings (same model as ingestion)
-embeddings = NVIDIAEmbeddings(model="nvidia/nv-embedqa-e5-v5")
+# embeddings = NVIDIAEmbeddings(model="nvidia/nv-embedqa-e5-v5")
+embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 
 def get_retriever(year: int, k: int = 5):
     """
