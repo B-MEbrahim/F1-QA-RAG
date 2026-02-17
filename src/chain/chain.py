@@ -1,6 +1,4 @@
 import os
-from dotenv import load_dotenv
-#from langchain_nvidia_ai_endpoints import ChatNVIDIA
 from openai import OpenAI
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_openai import ChatOpenAI
@@ -11,26 +9,23 @@ from langchain_core.messages import HumanMessage, AIMessage
 # import tools
 from src.tools.retriever import get_retriever
 from src.guardrails.checks import validate_input, validate_output
+from config.config import LLM_PROVIDER, LLM_MODEL, GEMINI_KEY, HF_TOKEN, HF_BASE_URL
 
-load_dotenv()
 
-# ============ LLM Setup (NVIDIA NIM) ============
-chat_llm = ChatGoogleGenerativeAI(
-    model="gemini-3-flash-preview",
-    api_key=os.environ["GEMINI_KEY"]
-)
+# ============ LLM Setup ============
+match LLM_PROVIDER:
+    case "gemini":
+        chat_llm = ChatGoogleGenerativeAI(
+            model=LLM_MODEL,
+            api_key=GEMINI_KEY
+        )
+    case "huggingface":
+        chat_llm = ChatOpenAI(
+            model=LLM_MODEL,
+            api_key=HF_TOKEN,
+            base_url=HF_BASE_URL
+        )
 
-# chat_llm = ChatOpenAI(
-#     model="meta-llama/Llama-3.1-70B-Instruct:scaleway",
-#     api_key=os.environ["HF_TOKEN"],
-#     base_url="https://router.huggingface.co/v1"
-# )
-
-# chat_llm = ChatNVIDIA(
-#     model="meta/llama-3.1-70b-instruct",
-#     temperature=0.2,
-#     max_tokens=1024,
-# )
 
 # ============ Answer Chain (with chat history) ============
 answer_prompt = ChatPromptTemplate.from_messages([

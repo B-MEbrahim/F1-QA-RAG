@@ -9,37 +9,11 @@ Endpoints:
 """
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
-from typing import Optional
 import uvicorn
 
 from src.chain import get_answer, chat, clear_history
-from src.config import SERVER_HOST, SERVER_PORT
-
-# ============ Pydantic Models ============
-
-class ChatRequest(BaseModel):
-    """Request model for chat endpoint."""
-    question: str = Field(..., description="The user's question")
-    session_id: str = Field(default="default", description="Session ID for chat history")
-
-
-class ChatResponse(BaseModel):
-    """Response model for simple chat endpoint."""
-    answer: str
-
-
-class FullResponse(BaseModel):
-    """Response model for full ask endpoint."""
-    answer: str
-    intent: str
-    sources: list
-    validation_info: dict
-
-
-class ClearRequest(BaseModel):
-    """Request model for clear history endpoint."""
-    session_id: str = Field(default="default")
+from config.config import SERVER_HOST, SERVER_PORT
+from models.models import ChatRequest, ChatResponse, FullResponse, ClearRequest
 
 
 # ============ FastAPI App ============

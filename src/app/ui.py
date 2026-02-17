@@ -15,7 +15,7 @@ def respond(message: str, history: list, session_id: str):
     
     Args:
         message: User's question
-        history: Chat history (list of [user, bot] pairs)
+        history: Chat history (list of message dicts with role/content)
         session_id: Unique session identifier
     
     Returns:
@@ -27,20 +27,21 @@ def respond(message: str, history: list, session_id: str):
     # Get answer from RAG pipeline
     result = get_answer(message, session_id=session_id)
     
-    # Format response with intent indicator
-    intent_emoji = {
-        "REGULATIONS": "📜",
-        "RACE_RESULTS": "🏁",
-        "GENERAL_CHAT": "💬",
-        "BLOCKED": "🚫",
-        "ERROR": "❌"
-    }
+    # # Format response with intent indicator
+    # intent_emoji = {
+    #     "REGULATIONS": "📜",
+    #     "RACE_RESULTS": "🏁",
+    #     "GENERAL_CHAT": "💬",
+    #     "BLOCKED": "🚫",
+    #     "ERROR": "❌"
+    # }
     
-    emoji = intent_emoji.get(result["intent"], "🤖")
-    response = f"{emoji} {result['answer']}"
+    # emoji = intent_emoji.get(result["intent"], "🤖")
+    response = f"{result['answer']}"
     
-    # Add to history
-    history.append([message, response])
+    # Add to history using messages format
+    history.append({"role": "user", "content": message})
+    history.append({"role": "assistant", "content": response})
     
     return history, ""
 
@@ -94,7 +95,7 @@ def create_demo():
             label="Chat",
             height=450,
             elem_classes=["chatbot-container"],
-            avatar_images=(None, "🏎️")
+            # type="messages"
         )
         
         with gr.Row():

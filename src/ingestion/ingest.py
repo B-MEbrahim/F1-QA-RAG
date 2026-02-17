@@ -11,10 +11,10 @@ from langchain_chroma import Chroma
 from langchain_text_splitters import (MarkdownHeaderTextSplitter,
                                       RecursiveCharacterTextSplitter)
 from langchain_core.documents import Document
-#from langchain_nvidia_ai_endpoints import NVIDIAEmbeddings
+from config.config import EMBEDDING_MODEL, TOKENIZER, CHUNK_SIZE, CHUNK_OVERLAP, CHROMADB_DIR
 
-# Use the actual E5 tokenizer that matches the NVIDIA embedding model
-tokenizer = AutoTokenizer.from_pretrained("sentence-transformers/all-MiniLM-L6-v2")
+
+tokenizer = AutoTokenizer.from_pretrained(TOKENIZER)
 
 HEADER_TO_SPLIT_ON = [
     ("####", "clause"),
@@ -24,8 +24,7 @@ HEADER_TO_SPLIT_ON = [
 ]
 
 # init embedder
-embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
-# embeddings = NVIDIAEmbeddings(model="nvidia/nv-embedqa-e5-v5")
+embeddings = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL)
 
 def token_len(text):
     return len(tokenizer.encode(text, add_special_tokens=True))
@@ -115,8 +114,8 @@ def chunk_fia_document(md_text: str, file_path: str):
     # token splitting 
     # Using actual E5 tokenizer - safe limit is 480 tokens (with buffer under 512 max)
     token_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=480, 
-        chunk_overlap=50,
+        chunk_size=CHUNK_SIZE, 
+        chunk_overlap=CHUNK_OVERLAP,
         length_function=token_len
     )
     docs = token_splitter.split_documents(docs)
@@ -169,7 +168,7 @@ def run_ingestion(year_dir):
     vector_store = Chroma(
                         collection_name=year,
                         embedding_function=embeddings,
-                        persist_directory="./data/chromadb",  
+                        persist_directory=CHROMADB_DIR,  
                         )
     
     all_chunks = []
