@@ -4,10 +4,10 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.output_parsers import StrOutputParser
-from langchain_core.messages import HumanMessage, AIMessage
+from .chat_history import add_to_history, get_chat_history
 
 # import tools
-from src.tools.retriever import get_retriever
+from src.tools import get_retriever
 from src.guardrails.checks import validate_input, validate_output
 from config.config import LLM_PROVIDER, LLM_MODEL, GEMINI_KEY, HF_TOKEN, HF_BASE_URL
 
@@ -40,29 +40,6 @@ Context:
 ])
 
 answer_chain = answer_prompt | chat_llm | StrOutputParser()
-
-# ============ Chat History Store ============
-# Simple in-memory store (for demo purposes)
-chat_histories: dict[str, list] = {}
-
-def get_chat_history(session_id: str) -> list:
-    """Get chat history for a session."""
-    return chat_histories.get(session_id, [])
-
-def add_to_history(session_id: str, human_msg: str, ai_msg: str):
-    """Add a message pair to chat history."""
-    if session_id not in chat_histories:
-        chat_histories[session_id] = []
-    chat_histories[session_id].append(HumanMessage(content=human_msg))
-    chat_histories[session_id].append(AIMessage(content=ai_msg))
-    # Keep only last 10 exchanges (20 messages)
-    if len(chat_histories[session_id]) > 20:
-        chat_histories[session_id] = chat_histories[session_id][-20:]
-
-def clear_history(session_id: str):
-    """Clear chat history for a session."""
-    if session_id in chat_histories:
-        del chat_histories[session_id]
 
 # ============ Main Pipeline ============
 def get_answer(question: str, session_id: str = "default", year: int = 2026) -> dict:

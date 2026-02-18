@@ -5,13 +5,21 @@ Provides a chat interface for asking questions about F1 regulations and race res
 """
 import gradio as gr
 import uuid
-from src.chain import get_answer, clear_history
+import requests
+import json
+from config.config import SERVER_HOST, SERVER_PORT
+
+# ============ Server Configuration ============
+LANGSERVE_URL = f"http://{SERVER_HOST}:{SERVER_PORT}"
+ANSWER_CHAIN_ENDPOINT = f"{LANGSERVE_URL}/answer/invoke"
+CLEAR_HISTORY_ENDPOINT = f"{LANGSERVE_URL}/clear"
+
 
 # ============ Chat Interface ============
 
 def respond(message: str, history: list, session_id: str):
     """
-    Process user message and return bot response.
+    Process user message and return bot response via LangServe.
     
     Args:
         message: User's question
@@ -24,31 +32,54 @@ def respond(message: str, history: list, session_id: str):
     if not message.strip():
         return history, ""
     
-    # Get answer from RAG pipeline
-    result = get_answer(message, session_id=session_id)
+    try:
+        # Call answer_chain via LangServe
+        payload = {
+            "question": message,
+            "chat_history": history,
+            "session_id": session_id
+        }
+        
+        response = requests.post(
+            ANSWER_CHAIN_ENDPOINT,
+            json=payload,
+            timeout=30
+        )
+        response.raise_for_status()
+        
+        result = response.json()
+        
+        # Extract answer from LangServe response
+        answer = result.get("output", result) if isinstance(result, dict) else str(result)
+        
+        # Add to history using messages format
+        history.append({"role": "user", "content": message})
+        history.append({"role": "assistant", "content": answer})
+        
+        return history, ""
     
-    # # Format response with intent indicator
-    # intent_emoji = {
-    #     "REGULATIONS": "📜",
-    #     "RACE_RESULTS": "🏁",
-    #     "GENERAL_CHAT": "💬",
-    #     "BLOCKED": "🚫",
-    #     "ERROR": "❌"
-    # }
-    
-    # emoji = intent_emoji.get(result["intent"], "🤖")
-    response = f"{result['answer']}"
-    
-    # Add to history using messages format
-    history.append({"role": "user", "content": message})
-    history.append({"role": "assistant", "content": response})
-    
-    return history, ""
+    except requests.exceptions.ConnectionError:
+        error_msg = "❌ Could not connect to server. Make sure the FastAPI server is running."
+        history.append({"role": "user", "content": message})
+        history.append({"role": "assistant", "content": error_msg})
+        return history, ""
+    except Exception as e:
+        error_msg = f"❌ Error: {str(e)}"
+        history.append({"role": "user", "content": message})
+        history.append({"role": "assistant", "content": error_msg})
+        return history, ""
 
 
 def clear_chat(session_id: str):
-    """Clear chat history."""
-    clear_history(session_id)
+    """Clear chat history via server endpoint."""
+    try:
+        requests.post(
+            CLEAR_HISTORY_ENDPOINT,
+            json={"session_id": session_id},
+            timeout=10
+        )
+    except Exception as e:
+        print(f"Warning: Could not clear history on server: {e}")
     return [], ""
 
 

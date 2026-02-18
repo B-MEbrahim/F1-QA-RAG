@@ -1,9 +1,11 @@
 import hashlib
-from tools import extract_metadata_from_filename, normalize_file_markdown, 
+from src.tools import extract_metadata_from_filename, normalize_file_markdown, extract_rule_id
 from langchain_text_splitters import (MarkdownHeaderTextSplitter,
                                       RecursiveCharacterTextSplitter)
+from langchain_core.documents import Document
 from transformers import AutoTokenizer
-from config.config import TOKENIZER
+from config.config import TOKENIZER, CHUNK_SIZE, CHUNK_OVERLAP
+
 
 tokenizer = AutoTokenizer.from_pretrained(TOKENIZER)
 

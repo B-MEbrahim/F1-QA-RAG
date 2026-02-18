@@ -10,10 +10,11 @@ Endpoints:
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
-
+from langserve import add_routes
+from src.chain import answer_chain
 from src.chain import get_answer, chat, clear_history
 from config.config import SERVER_HOST, SERVER_PORT
-from models.models import ChatRequest, ChatResponse, FullResponse, ClearRequest
+from src.models import ChatRequest, ChatResponse, FullResponse, ClearRequest
 
 
 # ============ FastAPI App ============
@@ -26,14 +27,6 @@ app = FastAPI(
     redoc_url="/redoc"
 )
 
-# CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 
 # ============ Endpoints ============
@@ -116,32 +109,19 @@ async def clear_endpoint(request: ClearRequest):
     return {"message": f"Chat history cleared for session: {request.session_id}"}
 
 
-# ============ LangServe Integration (Optional) ============
-# Uncomment below to add LangServe routes for the chains
-
-# from langserve import add_routes
-# from src.chain import router_chain, answer_chain
-#
-# add_routes(
-#     app,
-#     router_chain,
-#     path="/router",
-#     enabled_endpoints=["invoke", "batch"]
-# )
-#
-# add_routes(
-#     app,
-#     answer_chain,
-#     path="/answer",
-#     enabled_endpoints=["invoke", "batch", "stream"]
-# )
+add_routes(
+    app,
+    answer_chain,
+    path="/answer",
+    enabled_endpoints=["invoke", "batch", "stream"]
+)
 
 
 # ============ Main Entry Point ============
 
 if __name__ == "__main__":
     uvicorn.run(
-        "src.server:app",
+        "src.app.server:app",
         host=SERVER_HOST,
         port=SERVER_PORT,
         reload=True
