@@ -11,7 +11,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 from langserve import add_routes
-from src.chain import answer_chain
+from src.chain import rag_chain
 from src.chain import get_answer, chat, clear_history
 from config.config import SERVER_HOST, SERVER_PORT
 from src.models import ChatRequest, ChatResponse, FullResponse, ClearRequest
@@ -86,7 +86,6 @@ async def ask_endpoint(request: ChatRequest):
         result = get_answer(request.question, request.session_id)
         return FullResponse(
             answer=result["answer"],
-            intent=result["intent"],
             sources=result["sources"],
             validation_info=result["validation_info"]
         )
@@ -111,7 +110,7 @@ async def clear_endpoint(request: ClearRequest):
 
 add_routes(
     app,
-    answer_chain,
+    rag_chain,
     path="/answer",
     enabled_endpoints=["invoke", "batch", "stream"]
 )

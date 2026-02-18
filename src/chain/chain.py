@@ -1,10 +1,13 @@
 import os
+from operator import itemgetter
 from openai import OpenAI
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.output_parsers import StrOutputParser
-from .chat_history import add_to_history, get_chat_history
+from langchain_core.runnables import RunnablePassthrough, RunnableLambda
+from langchain_core.runnables.history import RunnableWithMessageHistory
+from .chat_history import add_to_history, get_chat_history, get_session_history, get_chat_history_list
 
 # import tools
 from src.tools import get_retriever
@@ -12,7 +15,7 @@ from src.guardrails.checks import validate_input, validate_output
 from config.config import LLM_PROVIDER, LLM_MODEL, GEMINI_KEY, HF_TOKEN, HF_BASE_URL
 
 
-# ============ LLM Setup ============
+# LLM Setup
 match LLM_PROVIDER:
     case "gemini":
         chat_llm = ChatGoogleGenerativeAI(
@@ -27,7 +30,7 @@ match LLM_PROVIDER:
         )
 
 
-# ============ Answer Chain (with chat history) ============
+# Answer Chain Prompt
 answer_prompt = ChatPromptTemplate.from_messages([
     ("system", """You are an F1 Official Assistant. Answer the question based ONLY on the provided context.
 If the context is empty or irrelevant, say you don't know.
@@ -39,7 +42,42 @@ Context:
     ("human", "{question}"),
 ])
 
-answer_chain = answer_prompt | chat_llm | StrOutputParser()
+# helper functions
+def fetch_history(input_dict):
+    """Fetcher for LCEL: extract session_id and get history"""
+    session_id = input_dict.get("session_id", "default")
+    return get_chat_history_list(session_id)
+
+def fetch_context(input_dict):
+    """Fetcher for LCEL: get retriever and invoke it"""
+    question = input_dict["question"]
+    year = input_dict.get("year", 2026)
+    retriever = get_retriever(year)
+    docs = retriever.invoke(question)
+    return "\n\n".join(
+        [f"[Source: {d.metadata.get('source', 'Unknown')} | Rule: {d.metadata.get('rule_id', 'N/A')}]\n{d.page_content}" 
+         for d in docs]
+    )
+
+# base chain 
+base_chain = (
+    RunnablePassthrough.assign(
+        context=RunnableLambda(fetch_context)
+    )
+    | answer_prompt
+    | chat_llm
+    | StrOutputParser()
+    | RunnableLambda(lambda answer: {"answer": answer})
+)
+
+# RAG chain with history 
+rag_chain = RunnableWithMessageHistory(
+    base_chain,
+    get_session_history,
+    input_messages_key="question",
+    history_messages_key="chat_history",
+)
+
 
 # ============ Main Pipeline ============
 def get_answer(question: str, session_id: str = "default", year: int = 2026) -> dict:
@@ -83,7 +121,8 @@ def get_answer(question: str, session_id: str = "default", year: int = 2026) -> 
     print(f"--- Context Length: {len(str(context))} chars ---")
     print(f"--- Retrieved {len(retrieved_docs)} documents ---")
     
-    raw_answer = answer_chain.invoke({
+    chain_part = answer_prompt | chat_llm | StrOutputParser()
+    raw_answer = chain_part.invoke({
         "context": context,
         "question": question,
         "chat_history": history

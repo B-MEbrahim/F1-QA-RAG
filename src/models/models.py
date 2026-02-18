@@ -42,7 +42,6 @@ class ChatResponse(BaseModel):
 class FullResponse(BaseModel):
     """Response model for full ask endpoint."""
     answer: str
-    intent: str
     sources: list
     validation_info: dict
 
