@@ -43,6 +43,6 @@ def get_chat_history_list(session_id: str):
     """Returns the raw list of messages """
     return get_session_history(session_id).messages
  
-def clear_history(session_id: str):
+def clear_chat_history(session_id: str):
     if session_id in stores:
         stores[session_id].clear()

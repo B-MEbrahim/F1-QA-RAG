@@ -12,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 from langserve import add_routes
 from src.chain import rag_chain
-from src.chain import get_answer, chat, clear_history
+from src.chain import get_answer, chat, clear_history, clear_chat_history
 from config.config import SERVER_HOST, SERVER_PORT
 from src.models import ChatRequest, ChatResponse, FullResponse, ClearRequest
 
@@ -104,7 +104,7 @@ async def clear_endpoint(request: ClearRequest):
     Returns:
         Confirmation message
     """
-    clear_history(request.session_id)
+    clear_chat_history(request.session_id)
     return {"message": f"Chat history cleared for session: {request.session_id}"}
 
 
