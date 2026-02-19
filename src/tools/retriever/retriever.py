@@ -10,8 +10,22 @@ def get_retriever(year: int, k: int = 5):
     """
     Returns a retriever object specifically for the requested year's collection.
     """
+    print(f"[get_retriever] Loading year collection: {year}")
     vector_store = Chroma(
         collection_name=str(year),
+        embedding_function=embeddings,
+        persist_directory="./data/chromadb"
+    )
+    return vector_store.as_retriever(search_kwargs={"k": k})
+
+
+def get_retriever_for_collection(collection_name: str, k: int = 5):
+    """
+    Returns a retriever for an explicit collection name.
+    """
+    print(f"[get_retriever_for_collection] Loading collection: {collection_name}")
+    vector_store = Chroma(
+        collection_name=collection_name,
         embedding_function=embeddings,
         persist_directory="./data/chromadb"
     )

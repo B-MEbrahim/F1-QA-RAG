@@ -1,1 +1,1 @@
-from .retriever import search_f1_regulations, get_retriever
+from .retriever import search_f1_regulations, get_retriever, get_retriever_for_collection

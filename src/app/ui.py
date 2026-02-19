@@ -4,12 +4,15 @@ Gradio UI for the F1 RAG Bot.
 import gradio as gr
 import uuid
 import requests
+from pathlib import Path
 from config.config import SERVER_HOST, SERVER_PORT
 
 # ============ Server Configuration ============
 LANGSERVE_URL = f"http://{SERVER_HOST}:{SERVER_PORT}"
 ANSWER_CHAIN_ENDPOINT = f"{LANGSERVE_URL}/answer/invoke"
 CLEAR_HISTORY_ENDPOINT = f"{LANGSERVE_URL}/clear"
+CLEAR_UPLOAD_ENDPOINT = f"{LANGSERVE_URL}/clear-upload"
+CLEAR_UPLOAD_ENDPOINT = f"{LANGSERVE_URL}/clear-upload"
 
 
 # ============ Chat Interface ============
@@ -22,10 +25,13 @@ def respond(message: str, history: list, session_id: str):
     if not message.strip():
         return history, ""
 
+    history = history or []
+
     try:
         payload = {
             "input": {
                 "question": message,
+                "session_id": session_id,
             },
             "config": {
                 "configurable": {
@@ -82,6 +88,30 @@ def clear_chat(session_id: str):
     return [], ""
 
 
+def upload_rules_file(file_obj, session_id: str):
+    """Upload a PDF rules file to the server and index it for this session."""
+    if file_obj is None:
+        return "Please choose a PDF file first."
+
+    file_path = Path(getattr(file_obj, "name", file_obj))
+    if file_path.suffix.lower() != ".pdf":
+        return "Only PDF files are supported."
+
+    try:
+        with open(file_path, "rb") as f:
+            response = requests.post(
+                f"{LANGSERVE_URL}/upload",
+                data={"session_id": session_id},
+                files={"file": (file_path.name, f, "application/pdf")},
+                timeout=120
+            )
+        response.raise_for_status()
+        result = response.json()
+        return f"Uploaded {result.get('file_name', file_path.name)} ({result.get('chunk_count', 0)} chunks)"
+    except Exception as e:
+        return f"❌ Upload failed: {e}"
+
+
 def create_session_id():
     """Generate a new session ID."""
     return str(uuid.uuid4())[:8]
@@ -126,6 +156,19 @@ def create_demo():
             submit_btn = gr.Button("Send", variant="primary", scale=1)
 
         with gr.Row():
+            upload_file = gr.File(
+                label="Upload PDF Rules",
+                file_types=[".pdf"],
+                scale=3
+            )
+            upload_btn = gr.Button("Upload", variant="secondary", scale=1)
+            upload_status = gr.Textbox(
+                label="Upload Status",
+                interactive=False,
+                scale=4
+            )
+
+        with gr.Row():
             clear_btn = gr.Button("🗑️ Clear History", variant="secondary")
             new_session_btn = gr.Button("🔄 New Session ID", variant="secondary")
 
@@ -149,13 +192,33 @@ def create_demo():
             outputs=[chatbot, msg_input]
         )
 
-        def reset_session():
+        upload_btn.click(
+            fn=upload_rules_file,
+            inputs=[upload_file, session_id],
+            outputs=[upload_status]
+        )
+
+        def reset_session_with_clear(current_session_id: str):
+            """Reset session: clear uploads and create new session ID."""
+            # Clear uploaded files for the current session
+            try:
+                requests.post(
+                    CLEAR_UPLOAD_ENDPOINT,
+                    json={"session_id": current_session_id},
+                    timeout=10
+                )
+                print(f"Cleared uploads for session: {current_session_id}")
+            except Exception as e:
+                print(f"Warning: Could not clear uploads: {e}")
+            
+            # Generate new session
             new_id = create_session_id()
-            return [], "", new_id, f"Session ID: {new_id}"
+            return [], "", new_id, f"Session ID: {new_id}", None, ""
 
         new_session_btn.click(
-            fn=reset_session,
-            outputs=[chatbot, msg_input, session_id, session_display]
+            fn=reset_session_with_clear,
+            inputs=[session_id],
+            outputs=[chatbot, msg_input, session_id, session_display, upload_file, upload_status]
         )
 
     return demo

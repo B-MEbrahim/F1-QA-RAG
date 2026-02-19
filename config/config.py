@@ -13,6 +13,7 @@ DATA_DIR = BASE_DIR / "data"
 RAW_DATA_DIR = DATA_DIR / "raw"
 CHROMADB_DIR = DATA_DIR / "chromadb"
 CACHE_DIR = DATA_DIR / "cache"
+UPLOADS_DIR = DATA_DIR / "uploads"
 
 # ============ Embedding Model ============
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
