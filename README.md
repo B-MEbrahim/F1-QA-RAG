@@ -70,8 +70,7 @@ pip install -r requirements.txt
 
 ```bash
 cp .env.example .env
-# Edit .env with your NVIDIA API key (required)
-# Get your key at: https://build.nvidia.com/
+# Edit .env with your API key (required)
 ```
 
 **Required:** API keys for LLM provider (Gemini recommended, or HuggingFace endpoint)
